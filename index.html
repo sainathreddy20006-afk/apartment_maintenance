@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apartment Maintenance Request Management</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .gradient-header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 70%, #6366f1 100%);
+    }
+    .card-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    /* Print Specific Styling for Receipts / Work Orders */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printableInvoice, #printableInvoice * {
+        visibility: visible;
+      }
+      #printableInvoice {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 24px;
+        background: white !important;
+        color: #0f172a !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- ================= NAVBAR ================= -->
+  <header class="sticky top-0 z-50 glass-effect border-b border-slate-200/80 shadow-sm transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <!-- Brand Logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+            <i class="fa-solid fa-building-circle-check text-2xl"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-900 via-indigo-700 to-pink-600 bg-clip-text text-transparent">
+                Skyline Haven
+              </span>
+              <span class="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">Portal</span>
+            </div>
+            <p class="text-xs text-slate-500 font-medium">Apartment Maintenance Request Management</p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200">
+          <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 bg-white text-indigo-600 shadow-sm">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+          </button>
+          <button onclick="switchTab('requests')" id="nav-requests" class="nav-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-indigo-600 hover:bg-white/60">
+            <i class="fa-solid fa-list-check"></i> Requests
+            <span id="requestsCountBadge" class="bg-indigo-600 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full">0</span>
+          </button>
+          <button onclick="switchTab('residents')" id="nav-residents" class="nav-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-indigo-600 hover:bg-white/60">
+            <i class="fa-solid fa-users"></i> Residents
+          </button>
+          <button onclick="switchTab('staff')" id="nav-staff" class="nav-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-indigo-600 hover:bg-white/60">
+            <i class="fa-solid fa-user-gear"></i> Staff
+          </button>
+          <button onclick="switchTab('records')" id="nav-records" class="nav-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-indigo-600 hover:bg-white/60">
+            <i class="fa-solid fa-receipt"></i> Repair Records
+          </button>
+          <button onclick="switchTab('schema')" id="nav-schema" class="nav-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-indigo-600 hover:bg-white/60">
+            <i class="fa-solid fa-database"></i> DB Schema
+          </button>
+        </nav>
+
+        <!-- Right Action Items: MySQL Connection Indicator & Submit CTA -->
+        <div class="flex items-center gap-3">
+          <!-- MySQL Status Pill -->
+          <div id="mysqlPill" title="MySQL Workbench Server Status" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition bg-emerald-50 text-emerald-700 border-emerald-200">
+            <span id="mysqlPillDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="mysqlPillText">MySQL: Connected</span>
+          </div>
+
+          <button onclick="openSubmitModal()" class="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-semibold text-sm px-4 sm:px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-all transform active:scale-95">
+            <i class="fa-solid fa-circle-plus"></i>
+            <span class="hidden sm:inline">Submit Request</span>
+            <span class="sm:hidden">Request</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Nav Bar -->
+    <div class="md:hidden flex overflow-x-auto gap-1 px-3 py-2 border-t border-slate-200 bg-white/90">
+      <button onclick="switchTab('dashboard')" class="mobile-nav-tab text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap bg-indigo-50 text-indigo-600">Dashboard</button>
+      <button onclick="switchTab('requests')" class="mobile-nav-tab text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-600">Requests</button>
+      <button onclick="switchTab('residents')" class="mobile-nav-tab text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-600">Residents</button>
+      <button onclick="switchTab('staff')" class="mobile-nav-tab text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-600">Staff</button>
+      <button onclick="switchTab('records')" class="mobile-nav-tab text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-600">Records</button>
+      <button onclick="switchTab('schema')" class="mobile-nav-tab text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap text-slate-600">Schema</button>
+    </div>
+  </header>
+
+  <!-- ================= HERO SECTION ================= -->
+  <section class="gradient-header text-white relative overflow-hidden">
+    <div class="absolute -top-24 -right-24 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute top-1/2 -left-20 w-80 h-80 bg-indigo-500/30 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent opacity-60 pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <!-- Hero Text -->
+        <div class="lg:col-span-7 space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-indigo-200 text-xs font-semibold tracking-wide">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            MySQL Database Connected • User: root @ localhost:3306
+          </div>
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight">
+            Apartment Maintenance <span class="bg-gradient-to-r from-amber-300 via-pink-300 to-indigo-200 bg-clip-text text-transparent">Request Management</span>
+          </h1>
+          <p class="text-base sm:text-lg text-indigo-100/90 leading-relaxed font-normal max-w-2xl">
+            Effortlessly manage apartment maintenance complaints and repair requests. Residents can submit instant requests for plumbing, electrical, cleaning, and other issues, while maintenance staff can assign technicians, track live progress, and record repair costs.
+          </p>
+
+          <!-- Quick Service Badges with Pictures -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-xl p-3 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-blue-500/30 flex items-center justify-center text-blue-300 text-lg">
+                <i class="fa-solid fa-faucet-drip"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Plumbing</p>
+                <p class="text-[11px] text-indigo-200">Pipes, leaks, taps</p>
+              </div>
+            </div>
+
+            <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-xl p-3 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-500/30 flex items-center justify-center text-amber-300 text-lg">
+                <i class="fa-solid fa-bolt"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Electrical</p>
+                <p class="text-[11px] text-indigo-200">Wiring, lights, MCB</p>
+              </div>
+            </div>
+
+            <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-xl p-3 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-emerald-500/30 flex items-center justify-center text-emerald-300 text-lg">
+                <i class="fa-solid fa-broom"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Cleaning</p>
+                <p class="text-[11px] text-indigo-200">Waste, halls, deep clean</p>
+              </div>
+            </div>
+
+            <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-xl p-3 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-purple-500/30 flex items-center justify-center text-purple-300 text-lg">
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Other Repairs</p>
+                <p class="text-[11px] text-indigo-200">Carpentry, elevators</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA Buttons -->
+          <div class="flex flex-wrap items-center gap-4 pt-2">
+            <button onclick="openSubmitModal()" class="px-6 py-3 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold shadow-xl shadow-black/10 transition flex items-center gap-2">
+              <i class="fa-solid fa-bullhorn text-pink-500"></i> Submit New Complaint
+            </button>
+            <button onclick="switchTab('requests')" class="px-6 py-3 rounded-xl bg-white/15 hover:bg-white/20 border border-white/30 text-white font-semibold transition flex items-center gap-2 backdrop-blur-md">
+              <i class="fa-solid fa-sliders"></i> Staff Work Order Board
+            </button>
+          </div>
+        </div>
+
+        <!-- Hero Visual / Showcase Card -->
+        <div class="lg:col-span-5 relative">
+          <div class="relative mx-auto max-w-md lg:max-w-none">
+            <div class="rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20 bg-slate-800 relative group">
+              <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1000&q=80" alt="Skyline Grand Luxury Apartments" class="w-full h-80 object-cover object-center transform group-hover:scale-105 transition duration-500">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent"></div>
+              <div class="absolute bottom-4 left-4 right-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-white font-bold text-lg">Skyline Grand Residences</h3>
+                    <p class="text-xs text-indigo-200 flex items-center gap-1.5">
+                      <i class="fa-solid fa-location-dot text-pink-400"></i> Tower A & B • 120 Units
+                    </p>
+                  </div>
+                  <span class="px-3 py-1 rounded-full bg-emerald-500/90 text-white font-bold text-xs shadow-md">
+                    <i class="fa-solid fa-database mr-1"></i> MySQL 8.0
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floating Sub-Card: Live Request Dispatch -->
+            <div class="absolute -bottom-6 -left-6 bg-white/95 backdrop-blur-xl p-3.5 rounded-2xl shadow-xl border border-white/80 max-w-xs text-slate-800 hidden sm:flex items-center gap-3">
+              <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=150&q=80" alt="Plumbing fix" class="w-12 h-12 rounded-xl object-cover">
+              <div>
+                <div class="flex items-center gap-1 text-[11px] font-bold text-emerald-600 uppercase tracking-wider">
+                  <i class="fa-solid fa-circle-check"></i> Technician Assigned
+                </div>
+                <p class="text-xs font-semibold text-slate-800">Flat 402 • Master Bath Leak</p>
+                <p class="text-[11px] text-slate-500">Staff: Carlos Gomez (Plumbing)</p>
+              </div>
+            </div>
+
+            <!-- Floating Badge: Cost Saved -->
+            <div class="absolute -top-4 -right-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white p-3 rounded-2xl shadow-xl flex items-center gap-2">
+              <i class="fa-solid fa-receipt text-xl"></i>
+              <div>
+                <p class="text-[10px] font-semibold uppercase text-amber-100">Live Repair Costs</p>
+                <p id="heroCostSum" class="text-sm font-extrabold">$355.50</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MAIN APP CONTAINER ================= -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+    <!-- Quick Stats Bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 rounded-2xl shadow-md card-hover relative overflow-hidden">
+        <div class="absolute -right-3 -bottom-3 text-white/15 text-6xl">
+          <i class="fa-solid fa-clipboard-list"></i>
+        </div>
+        <p class="text-xs font-bold uppercase tracking-wider text-indigo-100">Total Requests</p>
+        <h3 id="statTotalRequests" class="text-3xl font-extrabold mt-1">0</h3>
+        <p class="text-xs text-indigo-200 mt-2 flex items-center gap-1">
+          <i class="fa-solid fa-clock"></i> Lifetime logged issues
+        </p>
+      </div>
+
+      <div class="bg-gradient-to-br from-amber-500 to-amber-700 text-white p-5 rounded-2xl shadow-md card-hover relative overflow-hidden">
+        <div class="absolute -right-3 -bottom-3 text-white/15 text-6xl">
+          <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+        <p class="text-xs font-bold uppercase tracking-wider text-amber-100">Pending & Active</p>
+        <h3 id="statPendingRequests" class="text-3xl font-extrabold mt-1">0</h3>
+        <p class="text-xs text-amber-200 mt-2 flex items-center gap-1">
+          <i class="fa-solid fa-wrench"></i> Requires technician attention
+        </p>
+      </div>
+
+      <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 rounded-2xl shadow-md card-hover relative overflow-hidden">
+        <div class="absolute -right-3 -bottom-3 text-white/15 text-6xl">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <p class="text-xs font-bold uppercase tracking-wider text-emerald-100">Resolved Jobs</p>
+        <h3 id="statCompletedRequests" class="text-3xl font-extrabold mt-1">0</h3>
+        <p class="text-xs text-emerald-200 mt-2 flex items-center gap-1">
+          <i class="fa-solid fa-square-check"></i> Completed with records
+        </p>
+      </div>
+
+      <div class="bg-gradient-to-br from-purple-600 to-pink-600 text-white p-5 rounded-2xl shadow-md card-hover relative overflow-hidden">
+        <div class="absolute -right-3 -bottom-3 text-white/15 text-6xl">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+        </div>
+        <p class="text-xs font-bold uppercase tracking-wider text-pink-100">Total Repair Expense</p>
+        <h3 id="statTotalCost" class="text-3xl font-extrabold mt-1">$0.00</h3>
+        <p class="text-xs text-pink-200 mt-2 flex items-center gap-1">
+          <i class="fa-solid fa-coins"></i> Recorded maintenance spend
+        </p>
+      </div>
+    </div>
+
+    <!-- ================= TAB 1: DASHBOARD OVERVIEW ================= -->
+    <div id="tab-dashboard" class="tab-pane space-y-8">
+      
+      <!-- Issue Categories Spotlight -->
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-800">Explore Maintenance Categories</h2>
+            <p class="text-sm text-slate-500">Fast-track requests categorized by specialty for resident convenience</p>
+          </div>
+          <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
+            4 Core Workstreams
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <!-- Plumbing Card -->
+          <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 card-hover flex flex-col group">
+            <div class="h-36 relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=600&q=80" alt="Plumbing" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <div class="absolute inset-0 bg-gradient-to-t from-blue-900/80 via-transparent to-transparent"></div>
+              <span class="absolute top-3 left-3 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                <i class="fa-solid fa-faucet mr-1"></i> Plumbing
+              </span>
+            </div>
+            <div class="p-4 flex-grow flex flex-col justify-between">
+              <div>
+                <h4 class="font-bold text-slate-800 text-base">Plumbing & Water Systems</h4>
+                <p class="text-xs text-slate-500 mt-1">Taps, drainage, bathroom clogs, geyser issues, and pipeline leak repairs.</p>
+              </div>
+              <div class="pt-4 flex items-center justify-between border-t border-slate-100 mt-3">
+                <span id="catCountPlumbing" class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">0 Requests</span>
+                <button onclick="openSubmitModalWithCategory('Plumbing')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  Request <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Electrical Card -->
+          <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 card-hover flex flex-col group">
+            <div class="h-36 relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80" alt="Electrical" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <div class="absolute inset-0 bg-gradient-to-t from-amber-900/80 via-transparent to-transparent"></div>
+              <span class="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                <i class="fa-solid fa-bolt mr-1"></i> Electrical
+              </span>
+            </div>
+            <div class="p-4 flex-grow flex flex-col justify-between">
+              <div>
+                <h4 class="font-bold text-slate-800 text-base">Electrical & Wiring</h4>
+                <p class="text-xs text-slate-500 mt-1">Short circuits, power trips, switchboards, lighting, and elevator relays.</p>
+              </div>
+              <div class="pt-4 flex items-center justify-between border-t border-slate-100 mt-3">
+                <span id="catCountElectrical" class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">0 Requests</span>
+                <button onclick="openSubmitModalWithCategory('Electrical')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  Request <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cleaning Card -->
+          <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 card-hover flex flex-col group">
+            <div class="h-36 relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80" alt="Cleaning" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <div class="absolute inset-0 bg-gradient-to-t from-emerald-900/80 via-transparent to-transparent"></div>
+              <span class="absolute top-3 left-3 bg-emerald-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                <i class="fa-solid fa-broom mr-1"></i> Cleaning
+              </span>
+            </div>
+            <div class="p-4 flex-grow flex flex-col justify-between">
+              <div>
+                <h4 class="font-bold text-slate-800 text-base">Sanitation & Cleaning</h4>
+                <p class="text-xs text-slate-500 mt-1">Corridor sanitization, trash chutes, pest control, and balcony washing.</p>
+              </div>
+              <div class="pt-4 flex items-center justify-between border-t border-slate-100 mt-3">
+                <span id="catCountCleaning" class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">0 Requests</span>
+                <button onclick="openSubmitModalWithCategory('Cleaning')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  Request <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Other Issues Card -->
+          <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200 card-hover flex flex-col group">
+            <div class="h-36 relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80" alt="Carpentry and Other" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <div class="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent"></div>
+              <span class="absolute top-3 left-3 bg-purple-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                <i class="fa-solid fa-screwdriver-wrench mr-1"></i> Other Repairs
+              </span>
+            </div>
+            <div class="p-4 flex-grow flex flex-col justify-between">
+              <div>
+                <h4 class="font-bold text-slate-800 text-base">General & Carpentry</h4>
+                <p class="text-xs text-slate-500 mt-1">Door hinges, window locks, wall paint touchups, intercom and masonry.</p>
+              </div>
+              <div class="pt-4 flex items-center justify-between border-t border-slate-100 mt-3">
+                <span id="catCountOther" class="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">0 Requests</span>
+                <button onclick="openSubmitModalWithCategory('Other')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  Request <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Chart.js Analytics Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart 1: Repair Costs Breakdown -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-indigo-600"></i> Repair Costs by Category ($ USD)
+              </h3>
+              <p class="text-xs text-slate-500">Live expenditure recorded across workstreams</p>
+            </div>
+            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">Financial Analytics</span>
+          </div>
+          <div class="relative h-64 flex items-center justify-center">
+            <canvas id="costCategoryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Status Breakdown -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-chart-column text-pink-600"></i> Work Orders by Status
+              </h3>
+              <p class="text-xs text-slate-500">Real-time status flow of maintenance complaints</p>
+            </div>
+            <span class="text-xs font-bold text-pink-600 bg-pink-50 border border-pink-200 px-2.5 py-1 rounded-lg">Operational Flow</span>
+          </div>
+          <div class="relative h-64 flex items-center justify-center">
+            <canvas id="statusDistributionChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Active Requests & Quick Action Columns -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Live Request Feed -->
+        <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2">
+                <i class="fa-solid fa-bell-concierge text-indigo-600"></i> Recent Maintenance Work Orders
+              </h3>
+              <p class="text-xs text-slate-500">Live request tracking for residents and maintenance officers</p>
+            </div>
+            <button onclick="switchTab('requests')" class="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">
+              View All Table <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+          </div>
+
+          <div id="recentRequestsList" class="space-y-3">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Maintenance Team on Duty -->
+        <div class="lg:col-span-4 space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                  <i class="fa-solid fa-id-badge text-pink-600"></i> Maintenance Staff
+                </h3>
+                <p class="text-xs text-slate-500">Registered technicians ready to dispatch</p>
+              </div>
+              <button onclick="switchTab('staff')" class="text-xs font-semibold text-indigo-600 hover:underline">
+                Manage
+              </button>
+            </div>
+
+            <div id="staffQuickList" class="space-y-3">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Quick Action Card -->
+          <div class="bg-gradient-to-br from-indigo-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+            <div class="relative z-10 space-y-3">
+              <span class="bg-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Resident Portal
+              </span>
+              <h4 class="font-extrabold text-lg text-white">Have a leak or breakdown?</h4>
+              <p class="text-xs text-indigo-200 leading-relaxed">
+                Log your request in under 30 seconds. Technicians are immediately notified and work is tracked until full resolution.
+              </p>
+              <button onclick="openSubmitModal()" class="w-full bg-gradient-to-r from-pink-500 to-indigo-500 hover:from-pink-600 hover:to-indigo-600 text-white font-bold text-xs py-2.5 rounded-xl shadow-lg transition">
+                <i class="fa-solid fa-wrench mr-1"></i> Log Maintenance Issue
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 2: REQUESTS (TABLE 3) ================= -->
+    <div id="tab-requests" class="tab-pane hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-indigo-600"></span>
+            <h2 class="text-xl font-extrabold text-slate-900">Table 3: Requests Log (`requests`)</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Schema: <code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-semibold">request_id INT PK</code>, <code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-semibold">resident_id INT FK</code>, <code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-semibold">staff_id INT FK</code>, <code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-semibold">issue_type VARCHAR(50)</code>, <code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-semibold">request_date DATETIME</code>, <code class="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-semibold">status VARCHAR(30)</code>
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Filter by Status -->
+          <select id="filterStatus" onchange="renderRequestsTable()" class="bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Assigned">Assigned</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
+
+          <!-- Filter by Issue Type -->
+          <select id="filterType" onchange="renderRequestsTable()" class="bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">All Issue Types</option>
+            <option value="Plumbing">Plumbing</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Cleaning">Cleaning</option>
+            <option value="Other">Other Repairs</option>
+          </select>
+
+          <!-- Search Input -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            <input type="text" id="searchRequests" onkeyup="renderRequestsTable()" placeholder="Search request, resident, flat..." class="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl pl-8 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 w-48 sm:w-56">
+          </div>
+
+          <!-- Export CSV -->
+          <button onclick="exportRequestsToCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200">
+            <i class="fa-solid fa-file-csv text-emerald-600 text-sm"></i> Export CSV
+          </button>
+
+          <!-- Add Request Button -->
+          <button onclick="openSubmitModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-plus"></i> New Request
+          </button>
+        </div>
+      </div>
+
+      <!-- Requests Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 text-slate-700 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="py-3.5 px-4">Req # (PK)</th>
+                <th class="py-3.5 px-4">Resident Info (FK)</th>
+                <th class="py-3.5 px-4">Issue Type</th>
+                <th class="py-3.5 px-4">Description</th>
+                <th class="py-3.5 px-4">Request Date</th>
+                <th class="py-3.5 px-4">Assigned Staff (FK)</th>
+                <th class="py-3.5 px-4">Status</th>
+                <th class="py-3.5 px-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+        <div id="noRequestsMsg" class="hidden p-12 text-center text-slate-400 text-sm">
+          <i class="fa-regular fa-folder-open text-4xl mb-2 text-slate-300"></i>
+          <p>No maintenance requests found matching your filter criteria.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 3: RESIDENTS (TABLE 1) ================= -->
+    <div id="tab-residents" class="tab-pane hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-blue-600"></span>
+            <h2 class="text-xl font-extrabold text-slate-900">Table 1: Residents Directory (`residents`)</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Schema: <code class="bg-slate-100 text-blue-600 px-1 py-0.5 rounded font-mono font-semibold">resident_id INT PK</code>, <code class="bg-slate-100 text-blue-600 px-1 py-0.5 rounded font-mono font-semibold">name VARCHAR(100)</code>, <code class="bg-slate-100 text-blue-600 px-1 py-0.5 rounded font-mono font-semibold">flat_no VARCHAR(20)</code>, <code class="bg-slate-100 text-blue-600 px-1 py-0.5 rounded font-mono font-semibold">phone VARCHAR(15)</code>, <code class="bg-slate-100 text-blue-600 px-1 py-0.5 rounded font-mono font-semibold">email VARCHAR(100)</code>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            <input type="text" id="searchResidents" onkeyup="renderResidentsTable()" placeholder="Search resident, flat, phone..." class="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl pl-8 pr-3 py-2 focus:ring-2 focus:ring-blue-500 w-48 sm:w-56">
+          </div>
+          <button onclick="exportResidentsToCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200">
+            <i class="fa-solid fa-file-csv text-blue-600 text-sm"></i> Export CSV
+          </button>
+          <button onclick="openResidentModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-user-plus"></i> Add Resident
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 text-slate-700 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="py-3.5 px-4">Resident ID (PK)</th>
+                <th class="py-3.5 px-4">Resident Name</th>
+                <th class="py-3.5 px-4">Flat Number</th>
+                <th class="py-3.5 px-4">Phone Number</th>
+                <th class="py-3.5 px-4">Email Address</th>
+                <th class="py-3.5 px-4 text-center">Active Requests</th>
+                <th class="py-3.5 px-4 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="residentsTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 4: MAINTENANCE STAFF (TABLE 2) ================= -->
+    <div id="tab-staff" class="tab-pane hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-600"></span>
+            <h2 class="text-xl font-extrabold text-slate-900">Table 2: Maintenance Staff (`maintenance_staff`)</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Schema: <code class="bg-slate-100 text-emerald-600 px-1 py-0.5 rounded font-mono font-semibold">staff_id INT PK</code>, <code class="bg-slate-100 text-emerald-600 px-1 py-0.5 rounded font-mono font-semibold">name VARCHAR(100)</code>, <code class="bg-slate-100 text-emerald-600 px-1 py-0.5 rounded font-mono font-semibold">email VARCHAR(100)</code>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            <input type="text" id="searchStaff" onkeyup="renderStaffTable()" placeholder="Search staff by name or email..." class="bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl pl-8 pr-3 py-2 focus:ring-2 focus:ring-emerald-500 w-48 sm:w-56">
+          </div>
+          <button onclick="openStaffModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-user-gear"></i> Add Staff Member
+          </button>
+        </div>
+      </div>
+
+      <!-- Staff Profiles Grid -->
+      <div id="staffCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Staff Table view -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 font-bold text-xs uppercase tracking-wider text-slate-700">
+          Relational Table View: `maintenance_staff`
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-100 text-slate-700 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="py-3.5 px-4">staff_id (PK)</th>
+                <th class="py-3.5 px-4">name</th>
+                <th class="py-3.5 px-4">email</th>
+                <th class="py-3.5 px-4">Assigned Tasks Count</th>
+                <th class="py-3.5 px-4 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="staffTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 5: MAINTENANCE RECORDS (TABLE 4) ================= -->
+    <div id="tab-records" class="tab-pane hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-purple-600"></span>
+            <h2 class="text-xl font-extrabold text-slate-900">Table 4: Maintenance Records & Cost Tracking (`maintenance_record`)</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Schema: <code class="bg-slate-100 text-purple-600 px-1 py-0.5 rounded font-mono font-semibold">request_id INT FK</code>, <code class="bg-slate-100 text-purple-600 px-1 py-0.5 rounded font-mono font-semibold">completion_date DATETIME</code>, <code class="bg-slate-100 text-purple-600 px-1 py-0.5 rounded font-mono font-semibold">repair_cost DECIMAL(10,2)</code>, <code class="bg-slate-100 text-purple-600 px-1 py-0.5 rounded font-mono font-semibold">remarks TEXT</code>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button onclick="exportRecordsToCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200">
+            <i class="fa-solid fa-file-csv text-purple-600 text-sm"></i> Export CSV
+          </button>
+          <button onclick="openRecordModal()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-file-invoice"></i> Record Completion & Cost
+          </button>
+        </div>
+      </div>
+
+      <!-- Cost Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-dollar-sign"></i>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase">Total Repair Spend</p>
+            <h4 id="recordTotalCost" class="text-2xl font-extrabold text-slate-900">$0.00</h4>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-check-double"></i>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase">Jobs Billed & Closed</p>
+            <h4 id="recordCount" class="text-2xl font-extrabold text-slate-900">0</h4>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-calculator"></i>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase">Average Repair Cost</p>
+            <h4 id="recordAvgCost" class="text-2xl font-extrabold text-slate-900">$0.00</h4>
+          </div>
+        </div>
+      </div>
+
+      <!-- Records Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 text-slate-700 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="py-3.5 px-4">Request ID (FK)</th>
+                <th class="py-3.5 px-4">Resident & Flat</th>
+                <th class="py-3.5 px-4">Issue Solved</th>
+                <th class="py-3.5 px-4">Completion Date</th>
+                <th class="py-3.5 px-4">Repair Cost</th>
+                <th class="py-3.5 px-4">Remarks</th>
+                <th class="py-3.5 px-4 text-center">Receipt & Invoice</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 6: DATABASE SCHEMA EXPLORER ================= -->
+    <div id="tab-schema" class="tab-pane hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-indigo-600"></span>
+            <h2 class="text-xl font-extrabold text-slate-900">Relational Database Architecture</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Connected to MySQL Server: <strong class="text-emerald-700 font-mono">root:Sai2603 @ localhost:3306</strong> • Database: <strong class="text-indigo-700 font-mono">apartment_maintenance_db</strong>
+          </p>
+        </div>
+        <button onclick="copySQLCode()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-copy"></i> Copy SQL Script
+        </button>
+      </div>
+
+      <!-- Schema 4 Tables Architecture Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- Table 1 Card -->
+        <div class="bg-white rounded-2xl p-5 border-2 border-blue-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">Table 1</span>
+            <i class="fa-solid fa-users text-blue-500"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-lg">residents</h3>
+          <ul class="text-xs space-y-2 font-mono">
+            <li class="flex items-center justify-between text-indigo-700 bg-indigo-50/70 px-2 py-1 rounded">
+              <span><strong>resident_id</strong> INT</span>
+              <span class="text-[10px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-sans font-bold">PK</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>name</span>
+              <span class="text-slate-400">VARCHAR(100)</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>flat_no</span>
+              <span class="text-slate-400">VARCHAR(20)</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>phone</span>
+              <span class="text-slate-400">VARCHAR(15)</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>email</span>
+              <span class="text-slate-400">VARCHAR(100)</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Table 2 Card -->
+        <div class="bg-white rounded-2xl p-5 border-2 border-emerald-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">Table 2</span>
+            <i class="fa-solid fa-user-gear text-emerald-500"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-lg">maintenance_staff</h3>
+          <ul class="text-xs space-y-2 font-mono">
+            <li class="flex items-center justify-between text-emerald-700 bg-emerald-50/70 px-2 py-1 rounded">
+              <span><strong>staff_id</strong> INT</span>
+              <span class="text-[10px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-sans font-bold">PK</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>name</span>
+              <span class="text-slate-400">VARCHAR(100)</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>email</span>
+              <span class="text-slate-400">VARCHAR(100)</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Table 3 Card -->
+        <div class="bg-white rounded-2xl p-5 border-2 border-indigo-300 shadow-sm space-y-3 ring-2 ring-indigo-500/20">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">Table 3 (Core)</span>
+            <i class="fa-solid fa-list-check text-indigo-500"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-lg">requests</h3>
+          <ul class="text-xs space-y-2 font-mono">
+            <li class="flex items-center justify-between text-indigo-700 bg-indigo-50/70 px-2 py-1 rounded">
+              <span><strong>request_id</strong> INT</span>
+              <span class="text-[10px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-sans font-bold">PK</span>
+            </li>
+            <li class="flex items-center justify-between text-blue-700 bg-blue-50/60 px-2 py-1 rounded">
+              <span><strong>resident_id</strong> INT</span>
+              <span class="text-[10px] bg-blue-600 text-white px-1.5 py-0.2 rounded font-sans font-bold">FK</span>
+            </li>
+            <li class="flex items-center justify-between text-emerald-700 bg-emerald-50/60 px-2 py-1 rounded">
+              <span><strong>staff_id</strong> INT</span>
+              <span class="text-[10px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-sans font-bold">FK</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>issue_type</span>
+              <span class="text-slate-400">VARCHAR(50)</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>request_date</span>
+              <span class="text-slate-400">DATETIME</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>status</span>
+              <span class="text-slate-400">VARCHAR(30)</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Table 4 Card -->
+        <div class="bg-white rounded-2xl p-5 border-2 border-purple-200 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">Table 4</span>
+            <i class="fa-solid fa-receipt text-purple-500"></i>
+          </div>
+          <h3 class="font-bold text-slate-800 text-lg">maintenance_record</h3>
+          <ul class="text-xs space-y-2 font-mono">
+            <li class="flex items-center justify-between text-indigo-700 bg-indigo-50/70 px-2 py-1 rounded">
+              <span><strong>request_id</strong> INT</span>
+              <span class="text-[10px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-sans font-bold">FK</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>completion_date</span>
+              <span class="text-slate-400">DATETIME</span>
+            </li>
+            <li class="flex items-center justify-between text-emerald-700 bg-emerald-50/60 px-2 py-1 rounded">
+              <span>repair_cost</span>
+              <span class="text-slate-400">DECIMAL(10,2)</span>
+            </li>
+            <li class="flex items-center justify-between text-slate-700 px-2 py-1">
+              <span>remarks</span>
+              <span class="text-slate-400">TEXT</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- SQL DDL Viewer -->
+      <div class="bg-slate-900 text-slate-100 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+            <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+            <span class="text-xs font-mono text-slate-400 ml-2">apartment_maintenance_schema.sql</span>
+          </div>
+          <span class="text-xs bg-slate-800 text-emerald-300 font-bold px-3 py-1 rounded-lg">MySQL 8.0 Workbench Compatible</span>
+        </div>
+
+        <pre id="sqlCodeBlock" class="text-xs font-mono text-indigo-200 leading-relaxed overflow-x-auto whitespace-pre p-2">
+-- ========================================================
+-- Apartment Maintenance Request Management System Schema
+-- ========================================================
+
+CREATE DATABASE IF NOT EXISTS apartment_maintenance_db;
+USE apartment_maintenance_db;
+
+-- Table 1: Residents
+CREATE TABLE IF NOT EXISTS residents (
+    resident_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    flat_no VARCHAR(20) NOT NULL,
+    phone VARCHAR(15) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- Table 2: Maintenance Staff
+CREATE TABLE IF NOT EXISTS maintenance_staff (
+    staff_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- Table 3: Maintenance Requests
+CREATE TABLE IF NOT EXISTS requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    resident_id INT NOT NULL,
+    staff_id INT DEFAULT NULL,
+    issue_type VARCHAR(50) NOT NULL, -- e.g., 'Plumbing', 'Electrical', 'Cleaning', 'Other'
+    request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(30) DEFAULT 'Pending', -- 'Pending', 'Assigned', 'In Progress', 'Completed'
+    description TEXT,
+    CONSTRAINT fk_request_resident FOREIGN KEY (resident_id) 
+        REFERENCES residents(resident_id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_staff FOREIGN KEY (staff_id) 
+        REFERENCES maintenance_staff(staff_id) ON DELETE SET NULL
+);
+
+-- Table 4: Maintenance Record
+CREATE TABLE IF NOT EXISTS maintenance_record (
+    record_id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL UNIQUE,
+    completion_date DATETIME NOT NULL,
+    repair_cost DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    remarks TEXT,
+    CONSTRAINT fk_record_request FOREIGN KEY (request_id) 
+        REFERENCES requests(request_id) ON DELETE CASCADE
+);
+        </pre>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="bg-slate-900 text-slate-400 py-10 border-t border-slate-800 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+            <i class="fa-solid fa-building-circle-check text-xl"></i>
+          </div>
+          <div>
+            <h4 class="text-white font-bold text-sm">Apartment Maintenance Request Management</h4>
+            <p class="text-xs text-slate-500">Connected to MySQL Workbench (root:Sai2603 @ localhost:3306)</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs">
+          <button onclick="checkBackendAndSync()" class="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-rotate"></i> Sync With MySQL
+          </button>
+          <span class="text-slate-700">|</span>
+          <span class="text-slate-400">Database: apartment_maintenance_db</span>
+        </div>
+      </div>
+      <div class="mt-8 pt-6 border-t border-slate-800/80 text-center text-xs text-slate-500">
+        &copy; 2026 Skyline Haven Residences. All Rights Reserved. Engineered with Tailwind CSS, Chart.js & Node.js MySQL backend.
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal 1: Submit Maintenance Request -->
+  <div id="modalSubmitRequest" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="bg-gradient-to-r from-indigo-600 to-pink-600 p-5 text-white flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg">
+            <i class="fa-solid fa-bullhorn"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-lg">Submit Maintenance Request</h3>
+            <p class="text-xs text-indigo-100">Writes directly to Table 3 in MySQL</p>
+          </div>
+        </div>
+        <button onclick="closeSubmitModal()" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formSubmitRequest" onsubmit="handleRequestSubmit(event)" class="p-6 space-y-4">
+        <!-- Resident Select -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Resident (Table 1: resident_id FK) <span class="text-rose-500">*</span>
+          </label>
+          <select id="reqResidentId" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <!-- Issue Type Select -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Issue Type (Table 3: issue_type) <span class="text-rose-500">*</span>
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-indigo-50 transition">
+              <input type="radio" name="issueTypeRadio" value="Plumbing" checked class="text-indigo-600">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-faucet-drip text-blue-500"></i> Plumbing
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-indigo-50 transition">
+              <input type="radio" name="issueTypeRadio" value="Electrical" class="text-indigo-600">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt text-amber-500"></i> Electrical
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-indigo-50 transition">
+              <input type="radio" name="issueTypeRadio" value="Cleaning" class="text-indigo-600">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-broom text-emerald-500"></i> Cleaning
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-indigo-50 transition">
+              <input type="radio" name="issueTypeRadio" value="Other" class="text-indigo-600">
+              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-screwdriver-wrench text-purple-500"></i> Other Repairs
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Issue Description -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Complaint Description <span class="text-rose-500">*</span>
+          </label>
+          <textarea id="reqDescription" required rows="3" placeholder="Describe the problem (e.g. Master bathroom tap is leaking continuously)..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <!-- Optional Staff Assign directly -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Assign Staff Technician (Optional)
+          </label>
+          <select id="reqStaffId" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500">
+            <option value="">-- Unassigned (Assign Later) --</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeSubmitModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition flex items-center gap-1.5">
+            <i class="fa-solid fa-paper-plane"></i> Submit to MySQL
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Assign Technician & Update Status -->
+  <div id="modalAssignStaff" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 p-5 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <i class="fa-solid fa-user-gear"></i>
+          </div>
+          <h3 class="font-bold text-base">Assign Technician & Status</h3>
+        </div>
+        <button onclick="closeAssignModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formAssignStaff" onsubmit="handleAssignStaff(event)" class="p-6 space-y-4">
+        <input type="hidden" id="assignRequestId">
+
+        <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-xs text-indigo-900">
+          <p class="font-bold" id="assignReqSummary">Request #101</p>
+          <p class="text-indigo-700" id="assignReqDetails">Resident details...</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Choose Technician (Table 2: staff_id FK)
+          </label>
+          <select id="assignStaffSelect" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Update Status (Table 3: status)
+          </label>
+          <select id="assignStatusSelect" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500">
+            <option value="Pending">Pending</option>
+            <option value="Assigned">Assigned</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeAssignModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md">
+            Save to MySQL
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Maintenance Record & Cost Entry (Table 4) -->
+  <div id="modalRecordEntry" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-gradient-to-r from-purple-700 to-indigo-700 p-5 text-white flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg">
+            <i class="fa-solid fa-receipt"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-lg">Table 4: Maintenance Record</h3>
+            <p class="text-xs text-purple-200">Log repair cost, completion date & remarks into MySQL</p>
+          </div>
+        </div>
+        <button onclick="closeRecordModal()" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formRecordEntry" onsubmit="handleRecordSubmit(event)" class="p-6 space-y-4">
+        <!-- Request ID Selector -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Select Request (Table 4: request_id) <span class="text-rose-500">*</span>
+          </label>
+          <select id="recordRequestId" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-purple-500">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Completion Date -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Completion Date <span class="text-rose-500">*</span>
+            </label>
+            <input type="datetime-local" id="recordCompletionDate" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-purple-500">
+          </div>
+
+          <!-- Repair Cost -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Repair Cost ($ USD) <span class="text-rose-500">*</span>
+            </label>
+            <div class="relative">
+              <span class="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">$</span>
+              <input type="number" step="0.01" min="0" id="recordRepairCost" required placeholder="120.00" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-purple-500 font-mono font-semibold">
+            </div>
+          </div>
+        </div>
+
+        <!-- Remarks -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Remarks & Spare Parts Used (remarks) <span class="text-rose-500">*</span>
+          </label>
+          <textarea id="recordRemarks" required rows="3" placeholder="Replaced ceramic cartridge and sealed leaking pipeline joint." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-purple-500"></textarea>
+        </div>
+
+        <div class="p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-center gap-2 text-xs text-purple-900">
+          <i class="fa-solid fa-circle-info text-purple-600 text-sm"></i>
+          <span>Submitting this record will automatically mark the request status as <strong>Completed</strong> in MySQL.</span>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeRecordModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-md flex items-center gap-1.5">
+            <i class="fa-solid fa-floppy-disk"></i> Save to MySQL
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 4: Add New Resident (Table 1) -->
+  <div id="modalAddResident" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-blue-600 p-5 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <i class="fa-solid fa-user-plus"></i>
+          </div>
+          <h3 class="font-bold text-base">Table 1: Add New Resident</h3>
+        </div>
+        <button onclick="closeResidentModal()" class="text-blue-200 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formAddResident" onsubmit="handleResidentSubmit(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Full Name (name) *</label>
+          <input type="text" id="newResidentName" required placeholder="Eleanor Vance" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Flat No (flat_no) *</label>
+            <input type="text" id="newResidentFlat" required placeholder="A-402" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Phone *</label>
+            <input type="text" id="newResidentPhone" required placeholder="+1 555-0199" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Email Address *</label>
+          <input type="email" id="newResidentEmail" required placeholder="eleanor.vance@gmail.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeResidentModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md">
+            Save to MySQL
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 5: Add New Staff (Table 2) -->
+  <div id="modalAddStaff" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-emerald-600 p-5 text-white flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <i class="fa-solid fa-user-gear"></i>
+          </div>
+          <h3 class="font-bold text-base">Table 2: Add Maintenance Staff</h3>
+        </div>
+        <button onclick="closeStaffModal()" class="text-emerald-200 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formAddStaff" onsubmit="handleStaffSubmit(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Staff Member Name (name) *</label>
+          <input type="text" id="newStaffName" required placeholder="Marcus Vance" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Email Address (email) *</label>
+          <input type="email" id="newStaffEmail" required placeholder="marcus.v@skylinemaint.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeStaffModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md">
+            Save to MySQL
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 6: Printable Work Order Receipt / Invoice -->
+  <div id="modalPrintInvoice" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <!-- Printable Invoice Area -->
+      <div id="printableInvoice" class="p-8 bg-white text-slate-800 space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-xl">
+              <i class="fa-solid fa-building-circle-check"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-extrabold text-slate-900">Skyline Haven Residences</h2>
+              <p class="text-xs text-slate-500">Apartment Facility & Maintenance Department</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+              REPAIR COMPLETED
+            </span>
+            <p id="invReceiptNo" class="text-xs font-mono font-bold text-slate-600 mt-1">Receipt #REC-101</p>
+          </div>
+        </div>
+
+        <!-- Resident & Job Details Grid -->
+        <div class="grid grid-cols-2 gap-4 text-xs">
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+            <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Resident Details</p>
+            <p id="invResidentName" class="font-bold text-slate-900 text-sm">Alexander Wright</p>
+            <p id="invFlatNo" class="text-slate-600 font-semibold">Flat: A-101</p>
+            <p id="invPhone" class="text-slate-500">+1 555-0101</p>
+          </div>
+
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+            <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Work Order & Staff</p>
+            <p id="invIssueType" class="font-bold text-indigo-700 text-sm">Plumbing Issue</p>
+            <p id="invStaff" class="text-slate-600">Staff: Carlos Gomez</p>
+            <p id="invCompletionDate" class="text-slate-500">Completed: 2026-11-01 13:45</p>
+          </div>
+        </div>
+
+        <!-- Issue Description & Remarks -->
+        <div class="space-y-3 text-xs">
+          <div>
+            <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Original Resident Complaint</p>
+            <p id="invDescription" class="mt-1 text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 italic">
+              Kitchen main sink drain backed up.
+            </p>
+          </div>
+
+          <div>
+            <p class="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Technician Remarks & Action Taken</p>
+            <p id="invRemarks" class="mt-1 text-slate-800 bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-medium">
+              Replaced PVC P-trap pipe assembly and silicone seals.
+            </p>
+          </div>
+        </div>
+
+        <!-- Repair Cost Final Calculation -->
+        <div class="border-t border-b border-slate-200 py-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold text-slate-500 uppercase">Total Repair Cost Billed</p>
+            <p class="text-[11px] text-slate-400">Includes replacement parts & facility labor charges</p>
+          </div>
+          <p id="invRepairCost" class="text-2xl font-extrabold text-indigo-700 font-mono">$145.50</p>
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2">
+          <span>Database Record ID: Table 4 (maintenance_record)</span>
+          <span>Verified & Signed By Resident</span>
+        </div>
+      </div>
+
+      <!-- Action Footer (Hidden when printing) -->
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 no-print">
+        <button type="button" onclick="closeInvoiceModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl">
+          Close
+        </button>
+        <button type="button" onclick="window.print()" class="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md flex items-center gap-1.5">
+          <i class="fa-solid fa-print"></i> Print Work Order Receipt
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ================= JAVASCRIPT APPLICATION LOGIC ================= -->
+  <script>
+    // Configuration for backend API running with MySQL
+    const API_BASE = 'http://localhost:5000/api';
+    let isConnectedToMySQL = false;
+
+    // Fallback Initial Sample Data
+    const DEFAULT_RESIDENTS = [
+      { resident_id: 1, name: "Alexander Wright", flat_no: "A-101", phone: "+1 555-0101", email: "alex.wright@gmail.com" },
+      { resident_id: 2, name: "Sophia Martinez", flat_no: "A-204", phone: "+1 555-0142", email: "sophia.m@outlook.com" },
+      { resident_id: 3, name: "David Kim", flat_no: "B-305", phone: "+1 555-0198", email: "david.kim99@yahoo.com" },
+      { resident_id: 4, name: "Emily Watson", flat_no: "B-412", phone: "+1 555-0233", email: "emily.watson@skyline.io" },
+      { resident_id: 5, name: "Michael Chang", flat_no: "C-102", phone: "+1 555-0377", email: "michael.c@gmail.com" },
+      { resident_id: 6, name: "Rachel Green", flat_no: "C-501", phone: "+1 555-0455", email: "rachel.g@fashionnet.com" }
+    ];
+
+    const DEFAULT_STAFF = [
+      { staff_id: 1, name: "Carlos Gomez", email: "carlos.plumbing@skylinemaint.com", role: "Master Plumber", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80" },
+      { staff_id: 2, name: "Vikram Patel", email: "vikram.electric@skylinemaint.com", role: "Senior Electrician", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80" },
+      { staff_id: 3, name: "Maria Santos", email: "maria.hygiene@skylinemaint.com", role: "Facility Sanitation Lead", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" },
+      { staff_id: 4, name: "James Thornton", email: "james.carpentry@skylinemaint.com", role: "General Maintenance & Carpentry", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80" }
+    ];
+
+    const DEFAULT_REQUESTS = [
+      { request_id: 101, resident_id: 1, staff_id: 1, issue_type: "Plumbing", request_date: "2026-11-01 09:30:00", status: "Completed", description: "Kitchen main sink drain backed up and leaking under valve." },
+      { request_id: 102, resident_id: 2, staff_id: 2, issue_type: "Electrical", request_date: "2026-11-03 14:15:00", status: "Completed", description: "Living room master circuit breaker keeps tripping when air conditioner is powered on." },
+      { request_id: 103, resident_id: 3, staff_id: 3, issue_type: "Cleaning", request_date: "2026-11-05 11:00:00", status: "In Progress", description: "Deep chemical sanitization needed for floor corridor and odor treatment." },
+      { request_id: 104, resident_id: 4, staff_id: 4, issue_type: "Other", request_date: "2026-11-06 16:45:00", status: "Assigned", description: "Balcony sliding glass door latch is jammed and hinges require mechanical alignment." },
+      { request_id: 105, resident_id: 5, staff_id: 1, issue_type: "Plumbing", request_date: "2026-11-07 08:15:00", status: "Pending", description: "Bathroom shower mixer head broken with high pressure water spraying." }
+    ];
+
+    const DEFAULT_RECORDS = [
+      { request_id: 101, completion_date: "2026-11-01 13:45:00", repair_cost: 145.50, remarks: "Replaced PVC P-trap pipe assembly and silicone seals. Tested leak-free." },
+      { request_id: 102, completion_date: "2026-11-03 17:30:00", repair_cost: 210.00, remarks: "Installed 32A high-surge Siemens miniature circuit breaker (MCB)." }
+    ];
+
+    // Live In-Memory State
+    let residents = JSON.parse(localStorage.getItem('apt_residents')) || DEFAULT_RESIDENTS;
+    let staff = JSON.parse(localStorage.getItem('apt_staff')) || DEFAULT_STAFF;
+    let requests = JSON.parse(localStorage.getItem('apt_requests')) || DEFAULT_REQUESTS;
+    let records = JSON.parse(localStorage.getItem('apt_records')) || DEFAULT_RECORDS;
+
+    // Chart.js Instances
+    let costChartInstance = null;
+    let statusChartInstance = null;
+
+    // Helper Finders
+    function getResident(id) {
+      return residents.find(r => r.resident_id === Number(id)) || { name: "Unknown", flat_no: "N/A", phone: "N/A", email: "N/A" };
+    }
+    function getStaff(id) {
+      if (!id) return null;
+      return staff.find(s => s.staff_id === Number(id)) || null;
+    }
+    function getRecord(requestId) {
+      return records.find(rec => rec.request_id === Number(requestId)) || null;
+    }
+
+    function formatCurrency(amount) {
+      return '$' + Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' +
+             d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getBadgeClass(status) {
+      switch (status) {
+        case 'Pending': return 'bg-amber-100 text-amber-800 border border-amber-300';
+        case 'Assigned': return 'bg-blue-100 text-blue-800 border border-blue-300';
+        case 'In Progress': return 'bg-indigo-100 text-indigo-800 border border-indigo-300';
+        case 'Completed': return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+        default: return 'bg-slate-100 text-slate-800 border border-slate-300';
+      }
+    }
+
+    function getCategoryBadge(type) {
+      switch (type) {
+        case 'Plumbing': return '<span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200"><i class="fa-solid fa-faucet-drip text-blue-500"></i> Plumbing</span>';
+        case 'Electrical': return '<span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200"><i class="fa-solid fa-bolt text-amber-500"></i> Electrical</span>';
+        case 'Cleaning': return '<span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-broom text-emerald-500"></i> Cleaning</span>';
+        default: return '<span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200"><i class="fa-solid fa-screwdriver-wrench text-purple-500"></i> Other</span>';
+      }
+    }
+
+    // ================= SYNC WITH MYSQL BACKEND =================
+    async function checkBackendAndSync() {
+      try {
+        const healthRes = await fetch(`${API_BASE}/health`);
+        if (!healthRes.ok) throw new Error('Health check non-200');
+        const healthData = await healthRes.json();
+
+        isConnectedToMySQL = true;
+        const pill = document.getElementById('mysqlPill');
+        const text = document.getElementById('mysqlPillText');
+        const dot = document.getElementById('mysqlPillDot');
+        pill.className = "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition bg-emerald-50 text-emerald-700 border-emerald-200";
+        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+        text.innerText = `MySQL 8.0: root@localhost:3306`;
+
+        // Load tables directly from MySQL
+        const [resResidents, resStaff, resRequests, resRecords] = await Promise.all([
+          fetch(`${API_BASE}/residents`).then(r => r.json()),
+          fetch(`${API_BASE}/staff`).then(r => r.json()),
+          fetch(`${API_BASE}/requests`).then(r => r.json()),
+          fetch(`${API_BASE}/records`).then(r => r.json())
+        ]);
+
+        residents = resResidents;
+        staff = resStaff.map(s => ({
+          ...s,
+          avatar: s.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
+          role: s.role || "Maintenance Technician"
+        }));
+        requests = resRequests;
+        records = resRecords.map(rec => ({
+          ...rec,
+          repair_cost: parseFloat(rec.repair_cost)
+        }));
+
+        saveToLocalStorageOnly();
+        refreshAllViews();
+        showToast("MySQL Connected", `Loaded 4 tables from database "apartment_maintenance_db"`, "success");
+      } catch (err) {
+        console.warn('Backend server not detected or offline, fallback to localStorage mode:', err);
+        isConnectedToMySQL = false;
+        const pill = document.getElementById('mysqlPill');
+        const text = document.getElementById('mysqlPillText');
+        const dot = document.getElementById('mysqlPillDot');
+        pill.className = "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition bg-amber-50 text-amber-700 border-amber-200";
+        dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+        text.innerText = `Local Mode (Start server.js for MySQL)`;
+        refreshAllViews();
+      }
+    }
+
+    function saveToLocalStorageOnly() {
+      localStorage.setItem('apt_residents', JSON.stringify(residents));
+      localStorage.setItem('apt_staff', JSON.stringify(staff));
+      localStorage.setItem('apt_requests', JSON.stringify(requests));
+      localStorage.setItem('apt_records', JSON.stringify(records));
+    }
+
+    // Switch Tab
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      const activePane = document.getElementById('tab-' + tabId);
+      if (activePane) activePane.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+        btn.classList.add('text-slate-600');
+      });
+      const activeNav = document.getElementById('nav-' + tabId);
+      if (activeNav) {
+        activeNav.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+        activeNav.classList.remove('text-slate-600');
+      }
+
+      window.scrollTo({ top: 380, behavior: 'smooth' });
+      if (tabId === 'dashboard') {
+        renderCharts();
+      }
+    }
+
+    // Update Global Dashboard Metrics & Charts
+    function updateGlobalMetrics() {
+      const totalReqs = requests.length;
+      const pendingReqs = requests.filter(r => r.status !== 'Completed').length;
+      const completedReqs = requests.filter(r => r.status === 'Completed').length;
+      const totalCost = records.reduce((sum, r) => sum + Number(r.repair_cost || 0), 0);
+
+      document.getElementById('statTotalRequests').innerText = totalReqs;
+      document.getElementById('statPendingRequests').innerText = pendingReqs;
+      document.getElementById('statCompletedRequests').innerText = completedReqs;
+      document.getElementById('statTotalCost').innerText = formatCurrency(totalCost);
+      document.getElementById('heroCostSum').innerText = formatCurrency(totalCost);
+      document.getElementById('requestsCountBadge').innerText = totalReqs;
+
+      const countPlumb = requests.filter(r => r.issue_type === 'Plumbing').length;
+      const countElec = requests.filter(r => r.issue_type === 'Electrical').length;
+      const countClean = requests.filter(r => r.issue_type === 'Cleaning').length;
+      const countOther = requests.filter(r => r.issue_type === 'Other').length;
+
+      document.getElementById('catCountPlumbing').innerText = `${countPlumb} Requests`;
+      document.getElementById('catCountElectrical').innerText = `${countElec} Requests`;
+      document.getElementById('catCountCleaning').innerText = `${countClean} Requests`;
+      document.getElementById('catCountOther').innerText = `${countOther} Requests`;
+
+      document.getElementById('recordTotalCost').innerText = formatCurrency(totalCost);
+      document.getElementById('recordCount').innerText = records.length;
+      const avgCost = records.length > 0 ? (totalCost / records.length) : 0;
+      document.getElementById('recordAvgCost').innerText = formatCurrency(avgCost);
+
+      renderCharts();
+    }
+
+    // Chart.js Visualization Rendering
+    function renderCharts() {
+      // 1. Costs Breakdown Chart
+      const ctxCost = document.getElementById('costCategoryChart');
+      if (ctxCost) {
+        const catCosts = { Plumbing: 0, Electrical: 0, Cleaning: 0, Other: 0 };
+        records.forEach(rec => {
+          const req = requests.find(r => r.request_id === rec.request_id);
+          const type = req ? req.issue_type : 'Other';
+          catCosts[type] = (catCosts[type] || 0) + Number(rec.repair_cost || 0);
+        });
+
+        if (costChartInstance) costChartInstance.destroy();
+
+        costChartInstance = new Chart(ctxCost, {
+          type: 'doughnut',
+          data: {
+            labels: ['Plumbing', 'Electrical', 'Cleaning', 'Other'],
+            datasets: [{
+              data: [catCosts.Plumbing, catCosts.Electrical, catCosts.Cleaning, catCosts.Other],
+              backgroundColor: ['#3b82f6', '#f59e0b', '#10b981', '#a855f7'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: {
+                callbacks: {
+                  label: function(item) {
+                    return ` ${item.label}: $${Number(item.raw).toFixed(2)}`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Status Distribution Chart
+      const ctxStatus = document.getElementById('statusDistributionChart');
+      if (ctxStatus) {
+        const statusCounts = { Pending: 0, Assigned: 0, 'In Progress': 0, Completed: 0 };
+        requests.forEach(r => {
+          statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+        });
+
+        if (statusChartInstance) statusChartInstance.destroy();
+
+        statusChartInstance = new Chart(ctxStatus, {
+          type: 'bar',
+          data: {
+            labels: ['Pending', 'Assigned', 'In Progress', 'Completed'],
+            datasets: [{
+              label: 'Work Orders',
+              data: [statusCounts.Pending, statusCounts.Assigned, statusCounts['In Progress'], statusCounts.Completed],
+              backgroundColor: ['#f59e0b', '#3b82f6', '#6366f1', '#10b981'],
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { stepSize: 1 }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Render Recent Requests on Dashboard
+    function renderRecentDashboard() {
+      const container = document.getElementById('recentRequestsList');
+      const recents = [...requests].reverse().slice(0, 4);
+
+      if (recents.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No complaints submitted yet.</p>`;
+        return;
+      }
+
+      container.innerHTML = recents.map(req => {
+        const resident = getResident(req.resident_id);
+        const assignedStaff = getStaff(req.staff_id);
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-extrabold text-xs shrink-0">
+                #${req.request_id}
+              </div>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-bold text-slate-800">${resident.name}</span>
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">Flat ${resident.flat_no}</span>
+                  ${getCategoryBadge(req.issue_type)}
+                </div>
+                <p class="text-xs text-slate-600 mt-1 line-clamp-1">${req.description}</p>
+                <div class="flex items-center gap-4 text-[11px] text-slate-400 mt-1">
+                  <span><i class="fa-regular fa-clock mr-1"></i>${formatDate(req.request_date)}</span>
+                  <span><i class="fa-solid fa-user-gear mr-1"></i>${assignedStaff ? assignedStaff.name : '<span class="text-amber-500 font-semibold">Unassigned</span>'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:self-center shrink-0">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold ${getBadgeClass(req.status)}">
+                ${req.status}
+              </span>
+              <button onclick="openAssignModal(${req.request_id})" title="Manage / Assign" class="p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Render Staff quick list
+      const staffList = document.getElementById('staffQuickList');
+      staffList.innerHTML = staff.slice(0, 4).map(s => {
+        const activeCount = requests.filter(r => r.staff_id === s.staff_id && r.status !== 'Completed').length;
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+            <div class="flex items-center gap-3">
+              <img src="${s.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80'}" alt="${s.name}" class="w-9 h-9 rounded-full object-cover border border-slate-200">
+              <div>
+                <p class="text-xs font-bold text-slate-800">${s.name}</p>
+                <p class="text-[11px] text-slate-500">${s.email}</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${activeCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
+              ${activeCount} active
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ================= TABLE 3: RENDER REQUESTS TABLE =================
+    function renderRequestsTable() {
+      const tbody = document.getElementById('requestsTableBody');
+      const filterStatus = document.getElementById('filterStatus').value;
+      const filterType = document.getElementById('filterType').value;
+      const searchQuery = (document.getElementById('searchRequests').value || '').toLowerCase().trim();
+
+      let filtered = requests.filter(req => {
+        if (filterStatus !== 'ALL' && req.status !== filterStatus) return false;
+        if (filterType !== 'ALL' && req.issue_type !== filterType) return false;
+        if (searchQuery) {
+          const res = getResident(req.resident_id);
+          const staffMember = getStaff(req.staff_id);
+          const staffName = staffMember ? staffMember.name.toLowerCase() : '';
+          const matchId = String(req.request_id).includes(searchQuery);
+          const matchDesc = (req.description || '').toLowerCase().includes(searchQuery);
+          const matchRes = res.name.toLowerCase().includes(searchQuery) || res.flat_no.toLowerCase().includes(searchQuery);
+          if (!matchId && !matchDesc && !matchRes && !staffName) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        document.getElementById('noRequestsMsg').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('noRequestsMsg').classList.add('hidden');
+
+      tbody.innerHTML = filtered.map(req => {
+        const resident = getResident(req.resident_id);
+        const assignedStaff = getStaff(req.staff_id);
+        const record = getRecord(req.request_id);
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-4 font-mono font-bold text-indigo-700">
+              #${req.request_id}
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="font-bold text-slate-800">${resident.name}</div>
+              <div class="text-xs text-slate-500">
+                <span class="font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded">${resident.flat_no}</span>
+                <span class="ml-1">${resident.phone}</span>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              ${getCategoryBadge(req.issue_type)}
+            </td>
+            <td class="py-3.5 px-4 max-w-xs">
+              <p class="text-xs text-slate-700 line-clamp-2" title="${req.description}">${req.description}</p>
+            </td>
+            <td class="py-3.5 px-4 text-xs text-slate-500 whitespace-nowrap">
+              ${formatDate(req.request_date)}
+            </td>
+            <td class="py-3.5 px-4 text-xs">
+              ${assignedStaff ? `
+                <div class="flex items-center gap-1.5 font-bold text-slate-700">
+                  <i class="fa-solid fa-user-check text-emerald-500"></i> ${assignedStaff.name}
+                </div>
+                <div class="text-[11px] text-slate-400">${assignedStaff.email}</div>
+              ` : `
+                <span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                  <i class="fa-regular fa-clock"></i> Unassigned
+                </span>
+              `}
+            </td>
+            <td class="py-3.5 px-4">
+              <span class="inline-block text-xs font-bold px-2.5 py-1 rounded-full ${getBadgeClass(req.status)}">
+                ${req.status}
+              </span>
+            </td>
+            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+              <div class="flex items-center justify-center gap-1.5">
+                <button onclick="openAssignModal(${req.request_id})" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition" title="Assign Staff or Change Status">
+                  <i class="fa-solid fa-user-gear mr-1"></i> Update
+                </button>
+                ${req.status !== 'Completed' ? `
+                  <button onclick="openRecordModalForRequest(${req.request_id})" class="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold transition" title="Complete & Record Cost">
+                    <i class="fa-solid fa-receipt mr-1"></i> Bill
+                  </button>
+                ` : `
+                  <button onclick="openInvoiceModal(${req.request_id})" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition" title="Print Work Order Receipt">
+                    <i class="fa-solid fa-receipt mr-1"></i> Receipt
+                  </button>
+                `}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ================= TABLE 1: RENDER RESIDENTS TABLE =================
+    function renderResidentsTable() {
+      const tbody = document.getElementById('residentsTableBody');
+      const search = (document.getElementById('searchResidents').value || '').toLowerCase().trim();
+
+      const filtered = residents.filter(res => {
+        if (!search) return true;
+        return res.name.toLowerCase().includes(search) ||
+               res.flat_no.toLowerCase().includes(search) ||
+               res.phone.toLowerCase().includes(search) ||
+               res.email.toLowerCase().includes(search);
+      });
+
+      tbody.innerHTML = filtered.map(r => {
+        const activeReqs = requests.filter(req => req.resident_id === r.resident_id && req.status !== 'Completed').length;
+        const totalReqs = requests.filter(req => req.resident_id === r.resident_id).length;
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-4 font-mono font-bold text-blue-700">
+              #${r.resident_id}
+            </td>
+            <td class="py-3.5 px-4 font-bold text-slate-800">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                  ${r.name.charAt(0)}
+                </div>
+                <div>
+                  <p class="font-bold text-slate-800">${r.name}</p>
+                </div>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              <span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded text-xs border border-blue-200">
+                ${r.flat_no}
+              </span>
+            </td>
+            <td class="py-3.5 px-4 text-xs font-medium text-slate-700">
+              <i class="fa-solid fa-phone text-slate-400 mr-1.5"></i>${r.phone}
+            </td>
+            <td class="py-3.5 px-4 text-xs font-medium text-slate-700">
+              <i class="fa-solid fa-envelope text-slate-400 mr-1.5"></i>${r.email}
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              <span class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full ${activeReqs > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}">
+                ${activeReqs} Active / ${totalReqs} Total
+              </span>
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              <button onclick="openSubmitModalForResident(${r.resident_id})" class="text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition">
+                + New Request
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ================= TABLE 2: RENDER STAFF TABLE & CARDS =================
+    function renderStaffTable() {
+      const cardsGrid = document.getElementById('staffCardsGrid');
+      const tbody = document.getElementById('staffTableBody');
+      const search = (document.getElementById('searchStaff').value || '').toLowerCase().trim();
+
+      const filtered = staff.filter(s => {
+        if (!search) return true;
+        return s.name.toLowerCase().includes(search) || s.email.toLowerCase().includes(search);
+      });
+
+      cardsGrid.innerHTML = filtered.map(s => {
+        const assignedTasks = requests.filter(r => r.staff_id === s.staff_id);
+        const activeTasks = assignedTasks.filter(r => r.status !== 'Completed').length;
+        const resolvedTasks = assignedTasks.filter(r => r.status === 'Completed').length;
+
+        return `
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm card-hover flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-3">
+                <img src="${s.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}" alt="${s.name}" class="w-14 h-14 rounded-2xl object-cover shadow-sm border-2 border-emerald-500/20">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded border border-emerald-200 font-mono">ID #${s.staff_id}</span>
+                  </div>
+                  <h4 class="font-extrabold text-slate-900 text-base mt-0.5">${s.name}</h4>
+                  <p class="text-xs text-slate-500">${s.role || 'Maintenance Technician'}</p>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="text-slate-500 flex items-center gap-1"><i class="fa-solid fa-envelope text-slate-400"></i> ${s.email}</span>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-xs font-bold px-2.5 py-1 rounded-full ${activeTasks > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+                ${activeTasks} Active Tasks
+              </span>
+              <span class="text-xs text-slate-400 font-semibold">
+                ${resolvedTasks} Resolved
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      tbody.innerHTML = filtered.map(s => {
+        const assignedCount = requests.filter(r => r.staff_id === s.staff_id).length;
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-4 font-mono font-bold text-emerald-700">
+              #${s.staff_id}
+            </td>
+            <td class="py-3.5 px-4 font-bold text-slate-800">
+              ${s.name}
+            </td>
+            <td class="py-3.5 px-4 text-xs text-slate-600 font-mono">
+              ${s.email}
+            </td>
+            <td class="py-3.5 px-4 text-xs font-bold text-slate-700">
+              ${assignedCount} Assigned Requests
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              <button onclick="switchTab('requests'); document.getElementById('searchRequests').value='${s.name}'; renderRequestsTable();" class="text-xs font-bold text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 px-2.5 py-1 rounded transition">
+                View Assigned Work
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ================= TABLE 4: RENDER RECORDS & EXPENSES TABLE =================
+    function renderRecordsTable() {
+      const tbody = document.getElementById('recordsTableBody');
+
+      if (records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs">No maintenance completion records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records.map(rec => {
+        const req = requests.find(r => r.request_id === rec.request_id) || { resident_id: null, issue_type: 'General', description: 'N/A' };
+        const resident = getResident(req.resident_id);
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3.5 px-4 font-mono font-bold text-purple-700">
+              #${rec.request_id}
+            </td>
+            <td class="py-3.5 px-4">
+              <p class="font-bold text-slate-800">${resident.name}</p>
+              <p class="text-xs text-slate-500">Flat ${resident.flat_no}</p>
+            </td>
+            <td class="py-3.5 px-4">
+              ${getCategoryBadge(req.issue_type)}
+            </td>
+            <td class="py-3.5 px-4 text-xs text-slate-600 whitespace-nowrap">
+              <i class="fa-regular fa-calendar-check text-purple-500 mr-1.5"></i>${formatDate(rec.completion_date)}
+            </td>
+            <td class="py-3.5 px-4 font-mono font-extrabold text-slate-900 text-base">
+              ${formatCurrency(rec.repair_cost)}
+            </td>
+            <td class="py-3.5 px-4 text-xs text-slate-600 max-w-sm">
+              <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                <i class="fa-solid fa-quote-left text-slate-300 mr-1"></i>${rec.remarks}
+              </div>
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              <button onclick="openInvoiceModal(${rec.request_id})" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition">
+                <i class="fa-solid fa-receipt"></i> Print Invoice
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Refresh All Data Visuals
+    function refreshAllViews() {
+      updateGlobalMetrics();
+      renderRecentDashboard();
+      renderRequestsTable();
+      renderResidentsTable();
+      renderStaffTable();
+      renderRecordsTable();
+      populateDropdowns();
+    }
+
+    function populateDropdowns() {
+      const residentSelect = document.getElementById('reqResidentId');
+      residentSelect.innerHTML = residents.map(r => `
+        <option value="${r.resident_id}">${r.name} (Flat ${r.flat_no}) - ${r.phone}</option>
+      `).join('');
+
+      const staffSelectOptions = staff.map(s => `
+        <option value="${s.staff_id}">${s.name} (${s.email})</option>
+      `).join('');
+
+      document.getElementById('reqStaffId').innerHTML = `<option value="">-- Unassigned (Assign Later) --</option>` + staffSelectOptions;
+      document.getElementById('assignStaffSelect').innerHTML = `<option value="">-- Select Technician --</option>` + staffSelectOptions;
+
+      const recordReqSelect = document.getElementById('recordRequestId');
+      recordReqSelect.innerHTML = requests.map(req => {
+        const res = getResident(req.resident_id);
+        const hasRec = getRecord(req.request_id);
+        return `
+          <option value="${req.request_id}">
+            #${req.request_id} - ${res.name} (Flat ${res.flat_no}) [${req.issue_type}] - ${req.status} ${hasRec ? '(Has Record)' : ''}
+          </option>
+        `;
+      }).join('');
+    }
+
+    // ================= MODAL HANDLERS & API WRITES =================
+
+    function openSubmitModal() {
+      populateDropdowns();
+      document.getElementById('formSubmitRequest').reset();
+      document.getElementById('modalSubmitRequest').classList.remove('hidden');
+      document.getElementById('modalSubmitRequest').classList.add('flex');
+    }
+
+    function openSubmitModalWithCategory(category) {
+      openSubmitModal();
+      const radio = document.querySelector(`input[name="issueTypeRadio"][value="${category}"]`);
+      if (radio) radio.checked = true;
+    }
+
+    function openSubmitModalForResident(residentId) {
+      openSubmitModal();
+      document.getElementById('reqResidentId').value = residentId;
+    }
+
+    function closeSubmitModal() {
+      document.getElementById('modalSubmitRequest').classList.add('hidden');
+      document.getElementById('modalSubmitRequest').classList.remove('flex');
+    }
+
+    async function handleRequestSubmit(e) {
+      e.preventDefault();
+      const resident_id = Number(document.getElementById('reqResidentId').value);
+      const issue_type = document.querySelector('input[name="issueTypeRadio"]:checked').value;
+      const description = document.getElementById('reqDescription').value.trim();
+      const staff_id_val = document.getElementById('reqStaffId').value;
+      const staff_id = staff_id_val ? Number(staff_id_val) : null;
+      const status = staff_id ? "Assigned" : "Pending";
+
+      if (isConnectedToMySQL) {
+        try {
+          const res = await fetch(`${API_BASE}/requests`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resident_id, staff_id, issue_type, description, status })
+          });
+          const data = await res.json();
+          showToast("Saved to MySQL!", `Request #${data.request_id} stored in Table 3`, "success");
+          await checkBackendAndSync();
+          closeSubmitModal();
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // Fallback local
+      const newId = requests.length > 0 ? Math.max(...requests.map(r => r.request_id)) + 1 : 101;
+      const now = new Date();
+      const formattedDate = now.toISOString().replace('T', ' ').substring(0, 19);
+
+      requests.unshift({ request_id: newId, resident_id, staff_id, issue_type, request_date: formattedDate, status, description });
+      saveToLocalStorageOnly();
+      refreshAllViews();
+      closeSubmitModal();
+      showToast("Request Submitted!", `Request #${newId} saved locally.`, "success");
+    }
+
+    function openAssignModal(requestId) {
+      const req = requests.find(r => r.request_id === Number(requestId));
+      if (!req) return;
+
+      const res = getResident(req.resident_id);
+      document.getElementById('assignRequestId').value = req.request_id;
+      document.getElementById('assignReqSummary').innerText = `Request #${req.request_id} • ${req.issue_type}`;
+      document.getElementById('assignReqDetails').innerText = `Resident: ${res.name} (Flat ${res.flat_no}) - "${req.description}"`;
+      document.getElementById('assignStaffSelect').value = req.staff_id || "";
+      document.getElementById('assignStatusSelect').value = req.status;
+
+      document.getElementById('modalAssignStaff').classList.remove('hidden');
+      document.getElementById('modalAssignStaff').classList.add('flex');
+    }
+
+    function closeAssignModal() {
+      document.getElementById('modalAssignStaff').classList.add('hidden');
+      document.getElementById('modalAssignStaff').classList.remove('flex');
+    }
+
+    async function handleAssignStaff(e) {
+      e.preventDefault();
+      const reqId = Number(document.getElementById('assignRequestId').value);
+      const staffIdVal = document.getElementById('assignStaffSelect').value;
+      const staff_id = staffIdVal ? Number(staffIdVal) : null;
+      const status = document.getElementById('assignStatusSelect').value;
+
+      if (isConnectedToMySQL) {
+        try {
+          await fetch(`${API_BASE}/requests/${reqId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staff_id, status })
+          });
+          showToast("Updated in MySQL!", `Request #${reqId} technician & status updated.`, "info");
+          await checkBackendAndSync();
+          closeAssignModal();
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      const target = requests.find(r => r.request_id === reqId);
+      if (target) {
+        target.staff_id = staff_id;
+        target.status = status;
+        saveToLocalStorageOnly();
+        refreshAllViews();
+        closeAssignModal();
+        showToast("Updated!", `Request #${reqId} updated to "${status}".`, "info");
+      }
+    }
+
+    function openRecordModal() {
+      populateDropdowns();
+      document.getElementById('formRecordEntry').reset();
+      const now = new Date();
+      const isoLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      document.getElementById('recordCompletionDate').value = isoLocal;
+
+      document.getElementById('modalRecordEntry').classList.remove('hidden');
+      document.getElementById('modalRecordEntry').classList.add('flex');
+    }
+
+    function openRecordModalForRequest(requestId) {
+      openRecordModal();
+      document.getElementById('recordRequestId').value = requestId;
+    }
+
+    function closeRecordModal() {
+      document.getElementById('modalRecordEntry').classList.add('hidden');
+      document.getElementById('modalRecordEntry').classList.remove('flex');
+    }
+
+    async function handleRecordSubmit(e) {
+      e.preventDefault();
+      const request_id = Number(document.getElementById('recordRequestId').value);
+      const completion_date = document.getElementById('recordCompletionDate').value.replace('T', ' ') + ':00';
+      const repair_cost = parseFloat(document.getElementById('recordRepairCost').value) || 0.00;
+      const remarks = document.getElementById('recordRemarks').value.trim();
+
+      if (isConnectedToMySQL) {
+        try {
+          await fetch(`${API_BASE}/records`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ request_id, completion_date, repair_cost, remarks })
+          });
+          showToast("Saved to MySQL!", `Cost of ${formatCurrency(repair_cost)} recorded in Table 4.`, "success");
+          await checkBackendAndSync();
+          closeRecordModal();
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      const existingIdx = records.findIndex(rec => rec.request_id === request_id);
+      const newRecord = { request_id, completion_date, repair_cost, remarks };
+
+      if (existingIdx >= 0) {
+        records[existingIdx] = newRecord;
+      } else {
+        records.unshift(newRecord);
+      }
+
+      const targetReq = requests.find(r => r.request_id === request_id);
+      if (targetReq) {
+        targetReq.status = 'Completed';
+      }
+
+      saveToLocalStorageOnly();
+      refreshAllViews();
+      closeRecordModal();
+      showToast("Record Logged!", `Maintenance record saved for Request #${request_id}.`, "success");
+    }
+
+    function openResidentModal() {
+      document.getElementById('formAddResident').reset();
+      document.getElementById('modalAddResident').classList.remove('hidden');
+      document.getElementById('modalAddResident').classList.add('flex');
+    }
+
+    function closeResidentModal() {
+      document.getElementById('modalAddResident').classList.add('hidden');
+      document.getElementById('modalAddResident').classList.remove('flex');
+    }
+
+    async function handleResidentSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('newResidentName').value.trim();
+      const flat_no = document.getElementById('newResidentFlat').value.trim();
+      const phone = document.getElementById('newResidentPhone').value.trim();
+      const email = document.getElementById('newResidentEmail').value.trim();
+
+      if (isConnectedToMySQL) {
+        try {
+          const res = await fetch(`${API_BASE}/residents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, flat_no, phone, email })
+          });
+          const data = await res.json();
+          showToast("Added to MySQL!", `${name} stored in Table 1 (ID #${data.resident_id})`, "success");
+          await checkBackendAndSync();
+          closeResidentModal();
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      const newId = residents.length > 0 ? Math.max(...residents.map(r => r.resident_id)) + 1 : 1;
+      residents.push({ resident_id: newId, name, flat_no, phone, email });
+      saveToLocalStorageOnly();
+      refreshAllViews();
+      closeResidentModal();
+      showToast("Resident Added!", `${name} registered locally.`, "success");
+    }
+
+    function openStaffModal() {
+      document.getElementById('formAddStaff').reset();
+      document.getElementById('modalAddStaff').classList.remove('hidden');
+      document.getElementById('modalAddStaff').classList.add('flex');
+    }
+
+    function closeStaffModal() {
+      document.getElementById('modalAddStaff').classList.add('hidden');
+      document.getElementById('modalAddStaff').classList.remove('flex');
+    }
+
+    async function handleStaffSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('newStaffName').value.trim();
+      const email = document.getElementById('newStaffEmail').value.trim();
+
+      if (isConnectedToMySQL) {
+        try {
+          const res = await fetch(`${API_BASE}/staff`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email })
+          });
+          const data = await res.json();
+          showToast("Added to MySQL!", `${name} added to Table 2 (ID #${data.staff_id})`, "success");
+          await checkBackendAndSync();
+          closeStaffModal();
+          return;
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      const newId = staff.length > 0 ? Math.max(...staff.map(s => s.staff_id)) + 1 : 1;
+      staff.push({ staff_id: newId, name, email, role: "Maintenance Technician", avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80" });
+      saveToLocalStorageOnly();
+      refreshAllViews();
+      closeStaffModal();
+      showToast("Staff Member Added!", `${name} saved locally.`, "success");
+    }
+
+    // ================= PRINTABLE INVOICE / WORK ORDER MODAL =================
+    function openInvoiceModal(requestId) {
+      const req = requests.find(r => r.request_id === Number(requestId));
+      if (!req) return;
+      const res = getResident(req.resident_id);
+      const st = getStaff(req.staff_id);
+      const rec = getRecord(req.request_id) || {
+        completion_date: req.request_date,
+        repair_cost: 0,
+        remarks: "Job completed by on-duty technician."
+      };
+
+      document.getElementById('invReceiptNo').innerText = `Receipt #REC-${req.request_id}`;
+      document.getElementById('invResidentName').innerText = res.name;
+      document.getElementById('invFlatNo').innerText = `Flat: ${res.flat_no}`;
+      document.getElementById('invPhone').innerText = res.phone;
+      document.getElementById('invIssueType').innerText = `${req.issue_type} Maintenance`;
+      document.getElementById('invStaff').innerText = `Staff: ${st ? st.name : 'Facility Team'}`;
+      document.getElementById('invCompletionDate').innerText = `Completed: ${formatDate(rec.completion_date)}`;
+      document.getElementById('invDescription').innerText = `"${req.description}"`;
+      document.getElementById('invRemarks').innerText = rec.remarks;
+      document.getElementById('invRepairCost').innerText = formatCurrency(rec.repair_cost);
+
+      document.getElementById('modalPrintInvoice').classList.remove('hidden');
+      document.getElementById('modalPrintInvoice').classList.add('flex');
+    }
+
+    function closeInvoiceModal() {
+      document.getElementById('modalPrintInvoice').classList.add('hidden');
+      document.getElementById('modalPrintInvoice').classList.remove('flex');
+    }
+
+    // ================= CSV EXPORT UTILITIES =================
+    function downloadCSV(filename, csvContent) {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("CSV Exported", `Saved ${filename}`, "info");
+    }
+
+    function exportRequestsToCSV() {
+      let csv = "request_id,resident_name,flat_no,staff_name,issue_type,request_date,status,description\n";
+      requests.forEach(r => {
+        const res = getResident(r.resident_id);
+        const st = getStaff(r.staff_id);
+        const cleanDesc = (r.description || '').replace(/"/g, '""');
+        csv += `${r.request_id},"${res.name}","${res.flat_no}","${st ? st.name : 'Unassigned'}","${r.issue_type}","${r.request_date}","${r.status}","${cleanDesc}"\n`;
+      });
+      downloadCSV("table3_requests.csv", csv);
+    }
+
+    function exportRecordsToCSV() {
+      let csv = "request_id,resident_name,flat_no,issue_type,completion_date,repair_cost,remarks\n";
+      records.forEach(rec => {
+        const req = requests.find(r => r.request_id === rec.request_id) || {};
+        const res = getResident(req.resident_id);
+        const cleanRemarks = (rec.remarks || '').replace(/"/g, '""');
+        csv += `${rec.request_id},"${res.name}","${res.flat_no}","${req.issue_type || 'N/A'}","${rec.completion_date}",${rec.repair_cost},"${cleanRemarks}"\n`;
+      });
+      downloadCSV("table4_maintenance_records.csv", csv);
+    }
+
+    function exportResidentsToCSV() {
+      let csv = "resident_id,name,flat_no,phone,email\n";
+      residents.forEach(r => {
+        csv += `${r.resident_id},"${r.name}","${r.flat_no}","${r.phone}","${r.email}"\n`;
+      });
+      downloadCSV("table1_residents.csv", csv);
+    }
+
+    // Toast Notification System
+    function showToast(title, message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let icon = 'fa-circle-info';
+      let border = 'border-indigo-500';
+      if (type === 'success') {
+        icon = 'fa-circle-check text-emerald-500';
+        border = 'border-emerald-500';
+      } else if (type === 'warn') {
+        icon = 'fa-triangle-exclamation text-amber-500';
+        border = 'border-amber-500';
+      }
+
+      toast.className = `pointer-events-auto bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border-l-4 ${border} flex items-start gap-3 transform transition-all duration-300 translate-y-5 opacity-0 max-w-sm`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icon} text-lg mt-0.5"></i>
+        <div class="flex-grow">
+          <p class="font-bold text-sm text-white">${title}</p>
+          <p class="text-xs text-slate-300 mt-0.5">${message}</p>
+        </div>
+      `;
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.remove('translate-y-5', 'opacity-0'));
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function copySQLCode() {
+      const code = document.getElementById('sqlCodeBlock').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        showToast("Copied to Clipboard!", "SQL schema ready to paste into MySQL Workbench.", "success");
+      });
+    }
+
+    // Initialize Application
+    document.addEventListener('DOMContentLoaded', () => {
+      checkBackendAndSync();
+    });
+  </script>
+</body>
+</html>
